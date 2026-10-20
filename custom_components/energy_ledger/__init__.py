@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from homeassistant.components import panel_custom
+from homeassistant.helpers import entity_registry as er
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.components.http import StaticPathConfig
 
@@ -33,13 +34,20 @@ async def async_setup_entry(hass, entry):
         hass.http.register_view(LedgerProxyView)
         await panel_custom.async_register_panel(
             hass,
-            webcomponent_name="energy-ledger-panel",
+            webcomponent_name="energy-ledger-native-panel",
             frontend_url_path="energy-ledger",
-            module_url=f"{panel_url}?v=0.4.0",
-            sidebar_title=f"{entry.data.get('vehicle_name', 'EV')} · mesečno poročilo",
+            module_url=f"{panel_url}?v=0.4.1",
+            sidebar_title=f"{coordinator.vehicle_name} · mesečno poročilo",
             sidebar_icon="mdi:car-electric",
             require_admin=True,
-            config={"shadow": True, "vehicle_name": entry.data.get("vehicle_name", "EV")},
+            config={
+                "shadow": True,
+                "vehicle_name": coordinator.vehicle_name,
+                "odometer_entity": coordinator.config.get("odometer_entity", ""),
+                "month_entity": er.async_get(hass).async_get_entity_id(
+                    "select", DOMAIN, "energy_ledger_report_month"
+                ) or "select.energy_ledger_report_month",
+            },
         )
         hass.data[DOMAIN]["panel_registered"] = True
     return True
