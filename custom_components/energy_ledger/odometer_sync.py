@@ -8,7 +8,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 
 
 async def async_register_odometer(hass, coordinator, entry):
-    entity_id = entry.data.get("odometer_entity", "").strip()
+    entity_id = coordinator.config.get("odometer_entity", "").strip()
     if not entity_id:
         return lambda: None
 
@@ -19,7 +19,7 @@ async def async_register_odometer(hass, coordinator, entry):
             km = int(float(state.state))
             if km < 0 or str(float(state.state)) != str(float(km)):
                 return
-            timezone_name = entry.data.get("timezone", hass.config.time_zone)
+            timezone_name = coordinator.config.get("timezone", hass.config.time_zone)
             observed = state.last_updated.astimezone(ZoneInfo(timezone_name))
             last_day = calendar.monthrange(observed.year, observed.month)[1]
             if observed.day != last_day:

@@ -1,23 +1,43 @@
 {
+  "title": "Energy Ledger",
   "config": {
     "step": {
       "user": {
-        "title": "Energy Ledger – mesečno poročilo",
-        "description": "Povežite ta Home Assistant z lastno storitvijo Energy Ledger.",
+        "title": "Energy Ledger",
+        "description": "Reports run inside Home Assistant. No separate server or Docker container is required.",
         "data": {
-          "url": "Naslov storitve",
-          "vehicle_name": "Prikazno ime vozila",
-          "timezone": "Časovni pas (IANA)",
-          "odometer_entity": "ID entitete števca kilometrov",
-          "home_energy_statistic": "ID statistike energije za domače polnjenje",
-          "read_token": "Žeton za branje",
-          "write_token": "Žeton za pisanje",
-          "signing_secret": "Skrivnost za podpis"
+          "vehicle_name": "Vehicle name",
+          "timezone": "Time zone",
+          "odometer_entity": "Odometer sensor entity (optional)",
+          "home_energy_statistic": "Home charging energy statistic ID (optional)"
         }
       }
     },
     "error": {
-      "invalid_config": "Vnesite veljaven naslov storitve, časovni pas, ime vozila in vse tri skrivnosti."
+      "invalid_config": "Enter a vehicle name, a valid time zone and a valid contract month. Moj Elektro requires both a usage point and its API token."
+    },
+    "abort": {
+      "single_instance_allowed": "Energy Ledger is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Energy Ledger settings",
+        "data": {
+          "vehicle_name": "Vehicle name",
+          "timezone": "Time zone",
+          "odometer_entity": "Odometer sensor entity (optional)",
+          "home_energy_statistic": "Home charging energy statistic ID (optional)",
+          "allowance_km": "Mileage allowance in km (0 disables the plan)",
+          "contract_end_month": "Contract end month (YYYY-MM, optional)",
+          "moj_elektro_usage_point": "Moj Elektro usage point (optional)",
+          "moj_elektro_token": "Moj Elektro API token (optional)"
+        }
+      }
+    },
+    "error": {
+      "invalid_config": "Enter a vehicle name, a valid time zone and a valid contract month. Moj Elektro requires both a usage point and its API token."
     }
   }
 }

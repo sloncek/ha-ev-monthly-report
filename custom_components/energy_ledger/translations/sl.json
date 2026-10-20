@@ -1,23 +1,43 @@
 {
+  "title": "Energy Ledger",
   "config": {
     "step": {
       "user": {
-        "title": "Energy Ledger – mesečno poročilo",
-        "description": "Povežite ta Home Assistant z lastno storitvijo Energy Ledger.",
+        "title": "Energy Ledger",
+        "description": "Poročila tečejo znotraj Home Assistanta. Ločen strežnik ali Docker kontejner ni potreben.",
         "data": {
-          "url": "Naslov storitve",
-          "vehicle_name": "Prikazno ime vozila",
-          "timezone": "Časovni pas (IANA)",
-          "odometer_entity": "ID entitete števca kilometrov",
-          "home_energy_statistic": "ID statistike energije za domače polnjenje",
-          "read_token": "Žeton za branje",
-          "write_token": "Žeton za pisanje",
-          "signing_secret": "Skrivnost za podpis"
+          "vehicle_name": "Ime vozila",
+          "timezone": "Časovni pas",
+          "odometer_entity": "Entiteta števca kilometrov (neobvezno)",
+          "home_energy_statistic": "ID statistike domačega polnjenja (neobvezno)"
         }
       }
     },
     "error": {
-      "invalid_config": "Vnesite veljaven naslov storitve, časovni pas, ime vozila in vse tri skrivnosti."
+      "invalid_config": "Vnesi ime vozila, veljaven časovni pas in mesec pogodbe. Moj Elektro potrebuje merilno točko in API žeton."
+    },
+    "abort": {
+      "single_instance_allowed": "Energy Ledger je že nastavljen."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Energy Ledger settings",
+        "data": {
+          "vehicle_name": "Ime vozila",
+          "timezone": "Časovni pas",
+          "odometer_entity": "Entiteta števca kilometrov (neobvezno)",
+          "home_energy_statistic": "ID statistike domačega polnjenja (neobvezno)",
+          "allowance_km": "Dovoljena kilometrina (0 izklopi načrt)",
+          "contract_end_month": "Konec pogodbe (YYYY-MM, neobvezno)",
+          "moj_elektro_usage_point": "Merilna točka Moj Elektro (neobvezno)",
+          "moj_elektro_token": "API žeton Moj Elektro (neobvezno)"
+        }
+      }
+    },
+    "error": {
+      "invalid_config": "Vnesi ime vozila, veljaven časovni pas in mesec pogodbe. Moj Elektro potrebuje merilno točko in API žeton."
     }
   }
 }

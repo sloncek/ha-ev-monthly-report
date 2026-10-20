@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from energy_ledger.db import Database
-from energy_ledger.ev_register import get_register
-from energy_ledger.mileage_forecast import get_mileage_forecast
+from custom_components.energy_ledger.backend.db import Database
+from custom_components.energy_ledger.backend.ev_register import get_register
+from custom_components.energy_ledger.backend.mileage_forecast import get_mileage_forecast
 # Load the pure calculation module without importing the HA runtime package.
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
@@ -16,7 +16,7 @@ usage_payload = _usage_module.usage_payload
 
 
 def database(tmp_path):
-    db = Database(tmp_path / "ledger.sqlite3", __import__("pathlib").Path(__file__).parents[1] / "migrations")
+    db = Database(tmp_path / "ledger.sqlite3", __import__("pathlib").Path(__file__).parents[1] / "custom_components/energy_ledger/backend/migrations")
     db.migrate()
     return db
 
@@ -81,7 +81,7 @@ def test_home_usage_payload_uses_configured_timezone_and_statistic():
     assert result["quality"] == "complete"
 
 
-def test_entry_migration_preserves_credentials_and_user_mappings():
+def test_entry_migration_removes_api_credentials_and_preserves_user_mappings():
     import asyncio
     from types import SimpleNamespace
     spec = spec_from_file_location(
@@ -100,9 +100,10 @@ def test_entry_migration_preserves_credentials_and_user_mappings():
             "home_energy_statistic": "sensor.test_energy"}
     entry = SimpleNamespace(version=2, data=data)
     assert asyncio.run(module.async_migrate_entry(hass, entry)) is True
-    assert updates == [{"data": {**data, "timezone": "Europe/Ljubljana"}, "version": 3}]
+    expected = {k: v for k, v in data.items() if k not in {"url", "read_token", "write_token", "signing_secret"}}
+    assert updates == [{"data": {**expected, "timezone": "Europe/Ljubljana"}, "version": 4}]
     assert "timezone" not in data
     updates.clear()
-    entry.version = 4
+    entry.version = 5
     assert asyncio.run(module.async_migrate_entry(hass, entry)) is False
     assert updates == []

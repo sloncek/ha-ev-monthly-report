@@ -8,7 +8,6 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from pypdf import PdfReader
-from .settings import configured_timezone
 
 PARSER_VERSION = "geni-si-v3"
 
@@ -74,7 +73,7 @@ class ParsedInvoice:
         return asdict(self)
 
 
-def parse_geni_pages(pages: list[str]) -> ParsedInvoice:
+def parse_geni_pages(pages: list[str], timezone_name: str = "UTC") -> ParsedInvoice:
     if len(pages) < 2:
         raise ParseReview("GEN-I invoice must contain summary and electricity pages")
     pages = [normalize(p) for p in pages]
@@ -85,8 +84,8 @@ def parse_geni_pages(pages: list[str]) -> ParsedInvoice:
     gas_page = next((p for p in pages[2:] if "ZEMELJSKI PLIN" in p.upper()), None)
     invoice_number = match(r"Račun\s+številka:\s*(IR\d+)", all_text, re.I).group(1)
     period = match(r"(\d{2})\.\s*(\d{2})\.\s*(\d{4})\s*[-–]\s*(\d{2})\.\s*(\d{2})\.\s*(\d{4})", electricity)
-    start_date = datetime(int(period.group(3)), int(period.group(2)), int(period.group(1)), tzinfo=ZoneInfo(configured_timezone()))
-    inclusive_end = datetime(int(period.group(6)), int(period.group(5)), int(period.group(4)), tzinfo=ZoneInfo(configured_timezone()))
+    start_date = datetime(int(period.group(3)), int(period.group(2)), int(period.group(1)), tzinfo=ZoneInfo(timezone_name))
+    inclusive_end = datetime(int(period.group(6)), int(period.group(5)), int(period.group(4)), tzinfo=ZoneInfo(timezone_name))
     if inclusive_end < start_date or (inclusive_end - start_date).days > 62:
         raise ParseReject("invalid invoice period")
     end_exclusive = inclusive_end + timedelta(days=1)
@@ -136,21 +135,25 @@ def parse_geni_pages(pages: list[str]) -> ParsedInvoice:
     )
 
 
-def parse_geni_pdf(path: Path) -> ParsedInvoice:
+def parse_geni_pdf(path: Path, timezone_name: str = "UTC") -> ParsedInvoice:
     reader = PdfReader(str(path))
+    if reader.is_encrypted or len(reader.pages) > 50:
+        raise ParseReview("encrypted PDFs and invoices over 50 pages require manual review")
     pages = [page.extract_text() or "" for page in reader.pages]
     if not any(p.strip() for p in pages):
         raise ParseReview("native text missing; OCR review required")
-    return parse_geni_pages(pages)
+    return parse_geni_pages(pages, timezone_name)
 
 
-def parse_invoice_pdf(path: Path) -> ParsedInvoice:
+def parse_invoice_pdf(path: Path, timezone_name: str = "UTC") -> ParsedInvoice:
     """Dispatch a supported native-text invoice to its supplier parser."""
     reader = PdfReader(str(path))
+    if reader.is_encrypted or len(reader.pages) > 50:
+        raise ParseReview("encrypted PDFs and invoices over 50 pages require manual review")
     pages = [page.extract_text() or "" for page in reader.pages]
     if not any(page.strip() for page in pages):
         raise ParseReview("native text missing; OCR review required")
     text = "\n".join(pages).upper()
     if "GEN-I" in text:
-        return parse_geni_pages(pages)
+        return parse_geni_pages(pages, timezone_name)
     raise ParseReview("unsupported invoice supplier/template")

@@ -17,9 +17,10 @@ def utcnow() -> str:
 
 
 class Database:
-    def __init__(self, path: Path, migrations: Path):
+    def __init__(self, path: Path, migrations: Path, timezone_name: str = "UTC"):
         self.path = path
         self.migrations = migrations
+        self.timezone = timezone_name
 
     def connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, timeout=15)
@@ -127,9 +128,9 @@ class Database:
             finally:
                 restored.unlink(missing_ok=True)
 
-    def ensure_month(self, year_month: str, timezone_name: str = "UTC") -> int:
+    def ensure_month(self, year_month: str, timezone_name: str | None = None) -> int:
         year, month = map(int, year_month.split("-"))
-        local = ZoneInfo(timezone_name)
+        local = ZoneInfo(timezone_name or self.timezone)
         start = datetime(year, month, 1, tzinfo=local)
         end = datetime(year + (month == 12), 1 if month == 12 else month + 1, 1, tzinfo=local)
         with self.transaction() as conn:

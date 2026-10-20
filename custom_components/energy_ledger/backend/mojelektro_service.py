@@ -8,7 +8,6 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from .db import Database, utcnow
-from .settings import configured_timezone
 from .mojelektro import MojElektroAdapter, READING_TYPES
 
 
@@ -35,7 +34,7 @@ class MojElektroService:
             return {"status":"INCOMPLETE","detail":"moj_elektro_not_configured"}
         cfg=self.config
         adapter=MojElektroAdapter(cfg.get("base_url","https://api.informatika.si/mojelektro/v1"),cfg["usage_point"],self.token_file)
-        local=ZoneInfo(configured_timezone())
+        local=ZoneInfo(self.db.timezone)
         start=datetime.fromisoformat(month_row["period_start_utc"]).astimezone(local)
         end=datetime.fromisoformat(month_row["period_end_utc"]).astimezone(local)
         meter_hash=hashlib.sha256(cfg["usage_point"].encode()).hexdigest()

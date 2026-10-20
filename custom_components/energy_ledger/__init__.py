@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from homeassistant.components import panel_custom
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.components.http import StaticPathConfig
 
 from .const import DOMAIN, PLATFORMS
@@ -12,7 +13,14 @@ from .odometer_sync import async_register_odometer
 
 async def async_setup_entry(hass, entry):
     coordinator = LedgerCoordinator(hass, entry)
-    await coordinator.async_config_entry_first_refresh()
+    await coordinator.async_initialize()
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except Exception:
+        await coordinator.async_stop()
+        raise
+    entry.async_on_unload(hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, coordinator.async_stop))
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     entry.async_on_unload(await async_register_odometer(hass, coordinator, entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -27,7 +35,7 @@ async def async_setup_entry(hass, entry):
             hass,
             webcomponent_name="energy-ledger-panel",
             frontend_url_path="energy-ledger",
-            module_url=f"{panel_url}?v=0.3.1",
+            module_url=f"{panel_url}?v=0.4.0",
             sidebar_title=f"{entry.data.get('vehicle_name', 'EV')} · mesečno poročilo",
             sidebar_icon="mdi:car-electric",
             require_admin=True,
@@ -40,5 +48,16 @@ async def async_setup_entry(hass, entry):
 async def async_unload_entry(hass, entry):
     ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+        coordinator = hass.data[DOMAIN].pop(entry.entry_id)
+        await coordinator.async_stop()
     return ok
+
+
+async def _async_options_updated(hass, entry):
+    coordinator = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if coordinator and any(
+        coordinator.config.get(key) != {**entry.data, **entry.options}.get(key)
+        for key in ("vehicle_name", "timezone", "odometer_entity", "home_energy_statistic",
+                    "allowance_km", "contract_end_month", "moj_elektro_usage_point", "moj_elektro_token")
+    ):
+        await hass.config_entries.async_reload(entry.entry_id)

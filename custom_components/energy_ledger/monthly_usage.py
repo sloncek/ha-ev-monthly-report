@@ -36,8 +36,8 @@ def usage_payload(month, rows, statistic, timezone_name, now=None):
 
 
 async def async_sync_month(hass, coordinator, month):
-    statistic = coordinator.entry.data.get("home_energy_statistic", "").strip()
-    timezone_name = coordinator.entry.data.get("timezone", hass.config.time_zone)
+    statistic = coordinator.config.get("home_energy_statistic", "").strip()
+    timezone_name = coordinator.config.get("timezone", hass.config.time_zone)
     if not statistic:
         return
     from homeassistant.components.recorder import get_instance

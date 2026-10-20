@@ -6,7 +6,6 @@ from typing import Callable
 from zoneinfo import ZoneInfo
 
 from .db import Database, utcnow
-from .settings import configured_timezone
 
 RETRY_DELAY = timedelta(minutes=15)
 STALE_AFTER = timedelta(minutes=15)
@@ -24,12 +23,12 @@ def classify_error(exc: Exception) -> tuple[str, bool]:
     return type(exc).__name__, True
 
 
-def invoice_month(period_start_utc: str) -> str:
+def invoice_month(period_start_utc: str, timezone_name: str = "UTC") -> str:
     """Map an invoice UTC boundary to its configured local calendar month."""
     instant = datetime.fromisoformat(period_start_utc.replace("Z", "+00:00"))
     if instant.tzinfo is None:
         instant = instant.replace(tzinfo=timezone.utc)
-    return instant.astimezone(ZoneInfo(configured_timezone())).strftime("%Y-%m")
+    return instant.astimezone(ZoneInfo(timezone_name)).strftime("%Y-%m")
 
 
 class InvoicePipeline:
@@ -37,7 +36,7 @@ class InvoicePipeline:
         self.db = db
 
     def enqueue(self, invoice_id: int, period_start_utc: str) -> str:
-        month = invoice_month(period_start_utc)
+        month = invoice_month(period_start_utc, self.db.timezone)
         self.db.ensure_month(month)
         now = utcnow()
         with self.db.transaction() as conn:

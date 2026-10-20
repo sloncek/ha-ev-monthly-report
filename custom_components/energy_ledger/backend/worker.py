@@ -9,14 +9,14 @@ from pathlib import Path
 from .parser import ParseReject, ParseReview, parse_invoice_pdf
 
 
-def process_once(inbox: Path, outbox: Path) -> int:
+def process_once(inbox: Path, outbox: Path, timezone_name: str = "UTC") -> int:
     count = 0
     for path in sorted(inbox.glob("*.pdf")):
         if any(outbox.glob(f"{path.stem}.*")):
             continue
         try:
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
-            payload = {"sha256": digest, "status": "VALID", "invoice": parse_invoice_pdf(path).to_dict()}
+            payload = {"sha256": digest, "status": "VALID", "invoice": parse_invoice_pdf(path, timezone_name).to_dict()}
         except ParseReview as exc:
             payload = {"sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "status": "REVIEW", "error": type(exc).__name__, "detail": str(exc)[:500]}
         except (ParseReject, Exception) as exc:

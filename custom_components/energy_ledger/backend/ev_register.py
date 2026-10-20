@@ -12,7 +12,6 @@ from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from .db import utcnow
-from .settings import configured_timezone
 
 
 class RegisterError(ValueError):
@@ -87,7 +86,7 @@ def _opening(conn, month):
     return json.loads(rows[0])["closing_balance_cents"] if rows else 0
 
 
-def _calculate(conn, month):
+def _calculate(db, conn, month):
     record = conn.execute("SELECT * FROM ev_register_month WHERE year_month=?", (month,)).fetchone()
     legacy = json.loads(record["legacy_json"]) if record and record["legacy_json"] else {}
     usage = conn.execute("SELECT * FROM home_month_usage WHERE year_month=?", (month,)).fetchone()
@@ -100,7 +99,7 @@ def _calculate(conn, month):
     # Existing per-session public entries remain in the register; they are not
     # copied into the new expense table (which would double-count them).
     from zoneinfo import ZoneInfo
-    local=ZoneInfo(configured_timezone())
+    local=ZoneInfo(db.timezone)
     for row in conn.execute("SELECT * FROM public_charge WHERE verification_state!='VOID'"):
         if datetime.fromisoformat(row["started_at"].replace("Z","+00:00")).astimezone(local).strftime("%Y-%m") == month:
             expenses.append({"id":f"public-{row['id']}","year_month":month,"occurred_date":row["started_at"][:10],"kind":"PUBLIC","provider":row["provider"],"gross_cents":int((Decimal(row["gross_micro_eur"])/10000).quantize(Decimal("1"),rounding=ROUND_HALF_UP)),"energy_wh":row["energy_wh"],"eligible":row["claimable"],"notes":"Existing public session"})
@@ -146,7 +145,7 @@ def get_register(db, month, conn=None):
     if conn is None:
         with db.connect() as connection:
             return get_register(db, month, connection)
-    live = _calculate(conn, month)
+    live = _calculate(db, conn, month)
     row = conn.execute("SELECT snapshot_json FROM ev_register_month WHERE year_month=?", (month,)).fetchone()
     if row and row[0]:
         frozen = json.loads(row[0])
@@ -203,7 +202,7 @@ def report_month(db, month, payload, actor):
         _ensure(conn, month)
         if conn.execute("SELECT snapshot_json FROM ev_register_month WHERE year_month=?", (month,)).fetchone()[0]:
             raise RegisterError("already reported; snapshot is immutable", 409)
-        result = _calculate(conn, month)
+        result = _calculate(db, conn, month)
         if result["monthly_eligible_eur"] is None:
             raise RegisterError("home energy is missing; cannot mark reported", 409)
         usage = conn.execute("SELECT detail_json,quality FROM home_month_usage WHERE year_month=?", (month,)).fetchone()
@@ -242,7 +241,7 @@ def set_odometer(db, month, payload, actor):
     try:
         observed = datetime.fromisoformat(payload["observed_at"].replace("Z", "+00:00"))
         from zoneinfo import ZoneInfo
-        if observed.tzinfo is None or observed.astimezone(ZoneInfo(configured_timezone())).strftime("%Y-%m") != month:
+        if observed.tzinfo is None or observed.astimezone(ZoneInfo(db.timezone)).strftime("%Y-%m") != month:
             raise ValueError
         if observed.astimezone(timezone.utc) > datetime.now(timezone.utc)+timedelta(minutes=5):
             raise ValueError
@@ -305,12 +304,12 @@ def import_legacy(db, rows, source_sha256, actor="legacy-migration"):
                 from zoneinfo import ZoneInfo
                 for session in conn.execute("SELECT started_at FROM public_charge WHERE verification_state!='VOID'"):
                     at=datetime.fromisoformat(session[0].replace("Z","+00:00"))
-                    if at.astimezone(ZoneInfo(configured_timezone())).strftime("%Y-%m")==month:
+                    if at.astimezone(ZoneInfo(db.timezone)).strftime("%Y-%m")==month:
                         raise RegisterError("legacy aggregate overlaps existing public sessions",409)
             if public or item.get("public_energy_wh"):
                 conn.execute("INSERT INTO ev_register_expense(year_month,occurred_date,kind,provider,gross_cents,energy_wh,eligible,notes,actor,created_at) VALUES(?,?,'PUBLIC','Legacy monthly aggregate',?,?,1,?,?,?)",(month,month+f"-{calendar.monthrange(int(month[:4]),int(month[5:]))[1]:02d}",public,item.get("public_energy_wh"),item.get("notes",""),actor,utcnow()))
             if item.get("reported_eur") is not None:
-                result = _calculate(conn,month)
+                result = _calculate(db,conn,month)
                 home_cents = cents(item.get("home_reimbursement_eur",str(Decimal(item["home_wh"])*Decimal(item["rate"])/1000)))
                 monthly = cents(item["monthly_eligible_eur"])
                 request = signed_cents(item["requested_eur"])

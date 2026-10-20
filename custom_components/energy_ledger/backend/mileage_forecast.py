@@ -1,5 +1,7 @@
 """Per-instance mileage forecast built only from this ledger's own odometer readings."""
 import calendar
+import json
+import re
 import statistics
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -14,6 +16,9 @@ def _add_month(month, amount=1):
 
 
 def _is_month_end(row, timezone_name):
+    if row.get("odometer_source") == "legacy_manual" and re.fullmatch(r"[a-f0-9]{64}", row.get("source_sha256") or ""):
+        # Explicitly reviewed monthly readings retain their original provenance.
+        return True
     try:
         observed = datetime.fromisoformat(row["observed_at"].replace("Z", "+00:00"))
         local = observed.astimezone(ZoneInfo(timezone_name))
@@ -39,7 +44,7 @@ def get_mileage_forecast(db, month=None, timezone_name="UTC", plan=None, now=Non
     current = clock.astimezone(tz).strftime("%Y-%m")
     with db.connect() as conn:
         rows = [dict(row) for row in conn.execute(
-            "SELECT year_month,odometer_km,odometer_source,observed_at FROM ev_register_month WHERE odometer_km IS NOT NULL ORDER BY year_month"
+            "SELECT year_month,odometer_km,odometer_source,observed_at,source_sha256 FROM ev_register_month WHERE odometer_km IS NOT NULL ORDER BY year_month"
         )]
     readings, rejected = {}, []
     for row in rows:
@@ -61,6 +66,14 @@ def get_mileage_forecast(db, month=None, timezone_name="UTC", plan=None, now=Non
     average = statistics.mean(row["km"] for row in train) if len(train) >= 3 else None
     anchor_month = max(readings, default=None)
     anchor_km = readings.get(anchor_month) if anchor_month else None
+    if not isinstance(plan, dict):
+        with db.connect() as conn:
+            saved = conn.execute("SELECT payload_json FROM ev_fleet_plan WHERE id=1").fetchone()
+        if saved:
+            imported = json.loads(saved[0])
+            months = [item.get("month", "") for item in imported.get("months", []) if isinstance(item, dict)]
+            valid_months = [value for value in months if re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", value)]
+            plan = {"allowance_km": imported.get("allowance_km"), "contract_end_month": max(valid_months, default="")}
     plan = plan if isinstance(plan, dict) else {}
     try:
         allowance = int(plan["allowance_km"]) if plan.get("allowance_km") is not None else None

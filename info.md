@@ -1,5 +1,5 @@
 # EV Monthly Report
 
-Monthly home charging, reimbursement, and mileage report for Home Assistant. The Home Assistant integration and its sidebar panel install together; the separate API/database service remains a manual Docker Compose install.
+A standalone Home Assistant integration for monthly EV charging, reimbursement and mileage reports. HACS installs the integration, local database engine and sidebar panel together. No additional Docker container, add-on or external backend service is required.
 
-See the repository README for setup instructions and limitations.
+Configure your own vehicle sensors in Home Assistant. See the README for installation, optional invoice imports and migration from the former Docker version.

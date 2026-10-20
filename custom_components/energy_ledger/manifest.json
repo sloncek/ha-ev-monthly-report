@@ -12,6 +12,12 @@
   "documentation": "https://github.com/sloncek/ha-ev-monthly-report",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/sloncek/ha-ev-monthly-report/issues",
-  "requirements": [],
-  "version": "0.3.1"
+  "requirements": [
+    "fastapi==0.135.0",
+    "httpx==0.28.1",
+    "python-multipart==0.0.32",
+    "pypdf==6.21.1"
+  ],
+  "single_config_entry": true,
+  "version": "0.4.0"
 }

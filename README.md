@@ -1,139 +1,98 @@
-# Energy Ledger – mesečno poročilo za domače polnjenje EV
+# Energy Ledger — EV Monthly Report
 
-Ta paket pripravi mesečno poročilo o domači porabi za polnjenje, stroških oziroma povračilu ter kilometrini. Namenjen je samostojni namestitvi v Home Assistantu z ločenim API/parserjem. Priložen je primer za Audi e-tron, vendar integracija ne predpostavlja znamke: izbrati morate svoje entitete števca kilometrov in energije.
+A standalone Home Assistant integration for monthly home EV charging, reimbursement records and mileage forecasts.
 
-## Kaj je v paketu
+**Install it through HACS. No additional Docker container, add-on, API server or external database is required.** The reporting engine, SQLite storage, PDF parser and sidebar panel run inside Home Assistant. Required Python libraries are installed automatically by Home Assistant.
 
-- `energy_ledger/`: API, obdelava računov in izračun mesečnega registra.
-- `custom_components/energy_ledger/`: integracija HA, senzorji in konfiguracijski obrazec.
-- `custom_components/energy_ledger/www/energy_ledger_panel.js`: stranska plošča, ki se namesti skupaj z integracijo.
-- `migrations/`: shema lokalne zbirke podatkov.
-- `compose.yaml`: API in izoliran parser.
-- `config/config.example.json`: očiščen primer konfiguracije brez dejanskih računov, zgodovine ali skrivnosti.
+## Features
 
-## Zahteve
+- Monthly home charging energy from a Recorder energy statistic that you select.
+- Your own reimbursement rate, public charging and other manually entered expenses.
+- Reported amounts and carry-forward balances, with reported months preserved as snapshots.
+- Odometer readings from a sensor you select, with manual month-end entry when needed.
+- Mileage forecasts based on this installation's own monthly readings; optional mileage allowance and contract end month.
+- Optional native-text GEN-I PDF invoice import and Moj Elektro reconciliation.
 
-- Home Assistant z omogočenim Recorderjem in Docker Compose v2 na istem Docker gostitelju.
-- HA in storitev API morata komunicirati prek istega Docker omrežja. Sestava privzeto ne objavi API porta na gostitelju.
-- V HA mora obstajati entiteta števca kilometrov za vozilo ter statistika energije za domači polnilnik. Vir je lahko Audi e-tron integracija ali drug senzor; konkretna integracija vozila ni priložena.
-- Za poročila o stroških morate sami določiti tarifo, upravičenost stroškov, obdobje veljavnosti in pravila povračila.
+The integration is vehicle-neutral. It does not log in to a car manufacturer's cloud. Install the relevant vehicle and charger integrations separately and select their sensors.
 
-## Namestitev z Docker Compose
+## Installation
 
-1. Kopirajte ta projekt na gostitelja Home Assistanta in odprite njegovo mapo. Ustvarite lokalni delovni imenik:
+Requires **Home Assistant 2026.9 or newer**, Recorder and HACS.
 
-   ```sh
-   cp config/config.example.json config/config.json
-   cp .env.example .env
-   mkdir -p data/inbox data/outbox
-   ```
+1. Open **HACS → ⋮ → Custom repositories**.
+2. Add `https://github.com/sloncek/ha-ev-monthly-report` with type **Integration**.
+3. Find **EV Monthly Report**, open it and select **Download**.
+4. Restart Home Assistant.
+5. Open **Settings → Devices & services → Add integration → Energy Ledger**.
+6. Enter a vehicle name, time zone, odometer sensor entity and home charging energy statistic ID. Sensor mappings are optional during setup and can be changed later.
 
-2. Ugotovite Docker omrežje, na katerem je HA. Uporabite `docker network ls` in `docker inspect <ime-kontejnerja-ha>`; v `.env` nastavite `HA_DOCKER_NETWORK` na dejansko ime omrežja. Poskrbite, da je HA priključen nanj. Sestava uporablja DNS ime `energy-ledger-api`, zato iz HA vnesite ta naslov:
+The sidebar report panel is installed with the integration. There is no separate JavaScript resource to copy or configure. The report panel currently uses Slovenian labels; setup is available in English and Slovenian.
 
-   ```text
-   http://energy-ledger-api:8099
-   ```
+## Choose the right sensors
 
-   Če HA teče v načinu `network_mode: host`, ne uporablja Docker DNS omrežja. V tem primeru prilagodite Compose omrežje API-ja na `host` in uporabite `http://127.0.0.1:8099`; ne kombinirajte `network_mode: host` in zunanjega omrežja. Če sta HA in API na različnih gostiteljih, uredite zaseben šifriran dostop (npr. povratni proxy z TLS) in ne odpirajte API-ja javnemu internetu.
+- **Odometer:** an entity whose value is the vehicle's odometer in kilometres. Only observations received on the last day of the local calendar month count as automatic month-end readings. Otherwise enter the missing month-end reading manually.
+- **Home charging energy:** a Recorder statistic measuring this EV's charging energy in kWh. It must have valid hourly cumulative `sum` statistics, normally from a `total` or `total_increasing` sensor. Whole-house energy is not a substitute for charging energy.
+- **Time zone:** the local time zone used for month boundaries, for example `Europe/Ljubljana`.
 
-3. Ustvarite tri skrivnosti. Te datoteke ostanejo samo na vaši napravi:
+Missing history remains missing. The integration does not invent zero consumption or borrow another vehicle's history. A forecast needs at least three consecutive valid monthly distances.
 
-   ```sh
-   umask 077
-   openssl rand -hex 32 > secrets/read_token
-   openssl rand -hex 32 > secrets/write_token
-   openssl rand -hex 32 > secrets/ha_signing_secret
-   ```
+## Settings and daily use
 
-   Kontejnerji tečejo kot UID/GID `10001:10001`. Po ustvarjanju skrivnosti nastavite lastništvo in pravice, da API lahko bere datoteke, ne da bi jih izpostavil drugim uporabnikom:
+Open the integration's **Configure** dialog to update the sensor mappings, time zone, optional mileage allowance and contract end month (`YYYY-MM`). A mileage allowance of `0` disables the configured plan.
 
-   ```sh
-   sudo chown -R 10001:10001 data secrets
-   sudo chmod 700 data secrets
-   sudo chmod 600 secrets/read_token secrets/write_token secrets/ha_signing_secret
-   ```
+In the sidebar report, select a month and enter your reimbursement rate, public charging or other expenses. Mark a month as reported only after you have actually submitted that amount. The integration prepares text for your email; it does not send email or submit a claim.
 
-   Če izbrani NAS uporablja drugačen model pravic, nastavite ustrezen ACL za UID/GID 10001. Za konfiguracijo integracije boste pozneje uporabili vsebino skrivnosti; vrednosti ne objavljajte v repozitoriju ali posnetkih zaslona.
+Reported months keep their original snapshots. Later energy corrections appear as a pending difference. Reimbursement rates and eligibility rules are user-supplied; the integration does not include a default employer tariff.
 
-4. Uredite `config/config.json` (glejte razdelek **Ročne nastavitve**). `timezone` v tej datoteki in časovni pas, ki ga vnesete v obrazec integracije HA, morata biti enaka. API uporablja prvi za mesečne registre, integracija pa drugega za odčitke Recorderja in števca. `vehicle_name` v backend konfiguraciji naj se ujema s prikaznim imenom v obrazcu HA. Nato zaženite:
+## Optional PDF invoices and Moj Elektro
 
-   ```sh
-   docker compose build
-   docker compose up -d
-   docker compose logs -f api
-   ```
+PDF parsing runs locally inside Home Assistant's executor. The parser currently supports a limited native-text GEN-I invoice layout. Scans, encrypted PDFs, invoices over 50 pages and unsupported layouts require manual review. Uploads are limited to 15 MiB; your HA HTTP limit may be lower. Check every parsed result before using it.
 
-   `data/` vsebuje lokalno zbirko in uvožene podatke. Vključite jo v lastno varnostno kopijo in omejite dostop do nje.
+Moj Elektro is optional. In **Configure**, enter both your usage point and your own Moj Elektro API token to enable reconciliation. Leave both fields empty to keep it disabled. Only this optional feature contacts the Moj Elektro API; ordinary reports and forecasts are local.
 
-## Namestitev integracije v Home Assistant prek HACS
+## Storage, access and backups
 
-Integracija in JavaScript stranske plošče sta v istem HACS paketu. HACS ju namesti in posodablja skupaj; ročno kopiranje datoteke panela v `/config/www` ni potrebno. HACS namesti samo del Home Assistanta. Backend API, parser in zbirko podatkov je treba namestiti posebej z Docker Compose po zgornjih navodilih.
+Data is stored under:
 
-GitHub vir za HACS: **https://github.com/sloncek/ha-ev-monthly-report**. Dodajte ga kot repozitorij po meri:
-
-1. V HACS odprite meni **⋮ → Custom repositories**.
-2. Vnesite `https://github.com/sloncek/ha-ev-monthly-report` in izberite tip **Integration**.
-3. Dodajte repozitorij, odprite **EV Monthly Report** in izberite **Download**.
-4. Znova zaženite Home Assistant.
-5. Odprite **Nastavitve → Naprave in storitve → Dodaj integracijo**, poiščite **Energy Ledger** in vnesite URL API-ja, ime vozila, časovni pas, ID entitete števca kilometrov, ID statistike energije in tri skrivnosti.
-
-Časovni pas naj bo veljaven IANA zapis, na primer `Europe/Ljubljana`, in naj se ujema z `timezone` v `config/config.json`. Po namestitvi se poročilo prikaže v stranski plošči. Ker poročilo prikazuje kilometrino in zneske povračil, sta stranska plošča in njeni API bralni URL-ji omejeni na skrbnike Home Assistanta. Senzorji integracije pa so običajne HA entitete: uporabniki, ki jim je dovoljeno videti stanja teh entitet, lahko vidijo tudi kilometrino in zneske. Če panel ali entitete niso vidni, preverite dnevnike HA in API ter omrežno povezavo med HA in `energy-ledger-api`.
-
-### Razvoj in zasebni podatki
-
-GitHub je glavni vir kode. Popravke pripravljajte v ločenih vejah in jih pred združitvijo preglejte prek pull requesta. Kopija na Gitei naj se posodablja v smeri GitHub → Gitea.
-
-Repozitorij vsebuje programsko kodo, prazne predloge in sintetične testne podatke. Dejanske nastavitve, žetone, račune, podatkovno zbirko in izvožena poročila hranite samo v svoji namestitvi. Datoteke `.env`, `config/config.json`, `data/` in vsebina `secrets/` so izključene iz Gita; pred vsakim commitom vseeno preverite vsebino sprememb.
-
-Če HACS ni na voljo, lahko mapo `custom_components/energy_ledger` ročno namestite v `/config/custom_components/energy_ledger` in ponovno zaženete HA. Panel je že v tej mapi.
-
-### Ročne nastavitve in povezava Audi e-tron
-
-Konfiguracijski obrazec HA pričakuje ID-je entitet, ne imen naprav. Primeri (zamenjajte z dejanskimi ID-ji iz **Orodja za razvijalce → Stanja**):
-
-- števec kilometrov: na primer `sensor.audi_e_tron_odometer`;
-- energija domačega polnilnika: na primer Recorder statistika `sensor.wallbox_energy_total`.
-
-Statistika energije mora predstavljati porabo **vozila na domačem polnilniku**, izraženo v kWh, imeti zgodovinske urne statistike in biti pravilno nastavljena kot `total` ali `total_increasing`. Skupna poraba hiše ni ustrezen približek, razen če jo namensko razdelite na polnjenje EV. Ustrezno Audi integracijo oziroma polnilnik namestite in nastavite sami; ta paket ne kliče Audi oblaka in ne vključuje poverilnic.
-
-Za pravilno kilometrino mora biti odčitek na voljo ob koncu meseca. Integracija shrani mesečni odčitek, ko je entiteta posodobljena zadnji koledarski dan v izbranem časovnem pasu. Če se senzor takrat ne posodobi, vnesite manjkajoči mesečni odčitek v obrazcu za register, če je na voljo, ali zagotovite avtomatizacijo, ki senzor osveži zadnji dan meseca. Brez treh zaporednih mesečnih razdalj napoved ni prikazana.
-
-### Nastavitve za kilometrino
-
-Privzeto ni načrta kilometrov. Po potrebi sami dodajte v `config/config.json`:
-
-```json
-"mileage_plan": {
-  "allowance_km": 20000,
-  "contract_end_month": "2030-12"
-}
+```text
+/config/.storage/energy_ledger/<config-entry-id>/
 ```
 
-To sta zgolj označeni zgledni vrednosti: pred uporabo ju zamenjajte s svojim dovoljenim obsegom in končnim mesecem ali pustite `mileage_plan` nastavljen na `null`. Napoved se izračuna samo iz mesečnih odčitkov posamezne namestitve. Po spremembi konfiguracije ponovno zaženite API.
+This contains `ledger.sqlite3`, invoice evidence and import state. Include it in your Home Assistant backups. The public repository contains code and synthetic tests, not your ledger, invoices, tokens or vehicle history.
 
-## Stroški, povračilo in računi
+The report panel and its HTTP views require a Home Assistant administrator. Integration sensors are normal HA entities and follow your installation's usual entity visibility. Do not expose sensitive report entities to users who should not see them.
 
-Tarife in finančna pravila so odvisna od delodajalca, pogodbe, države in obračunskega obdobja, zato v paketu ni privzete tarife ali stopnje DDV. Ročno vnesite tarifo in datume veljavnosti v poročilo/registrski obrazec. Preverite, ali je znesek bruto ali neto, kako se zaokrožuje, kateri strošek je upravičen in ali potrebujete račun. Rezultat je evidenca za pregled, ne davčni ali računovodski nasvet.
+## Migrating from the former Docker version
 
-Računovodska uvozna pot je neobvezna. Trenutni parser podpira omejen format računov dobavitelja GEN-I; računov, predlog ali osebnih podatkov ni vključenih. Uvozite samo svoje dokumente in preverite razčlenjene zneske pred uporabo. Integracija Moj Elektro je prav tako neobvezna in privzeto izklopljena; za uporabo sami nastavite veljaven `usage_point`, pridobite lasten API žeton in dodajte varno mount točke skrivnosti v Compose. Osebni merilni priključek ali žeton nista priložena.
+Version `0.4.0` uses local storage and no longer uses the old backend URL or its read/write/signing credentials. The configuration entry keeps its identity, entity mappings and selected month. **The old external database must be imported separately before starting the standalone version.** Updating the integration alone does not transfer the old database.
 
-## Omejitve in predpostavke
+1. Back up the old backend data, installed integration and HA configuration.
+2. Download the new integration through HACS, but do not restart it yet.
+3. Stop Home Assistant and the old API/parser workers so there is a stable migration boundary.
+4. Run the bundled offline importer in a Python environment that can read both paths:
 
-- To je očiščen začetni paket, ne že preverjen obračun za specifično podjetje ali Audi namestitev.
-- Poročilo uporablja samo podatke, ki jih vnese posamezna namestitev. Prazne oziroma neustrezne HA entitete ne bodo dale uporabnega poročila.
-- Napoved kilometrov potrebuje zaporedne mesečne odčitke. Ne zapolnjuje manjkajoče zgodovine s podatki iz drugega vozila.
-- Samodejni odčitek števca se shrani le ob koncu koledarskega meseca, ko se entiteta posodobi; zagotovite posodobitev ali ročni vnos.
-- Domača energija mora biti ločena za EV. Paket ne more določiti, kateri del skupne hišne porabe je polnjenje.
-- Stroški in povračila so odvisni od ročnih tarif in pravil; preverite jih pred oddajo zahtevka.
-- Parser računov ni univerzalen; ni priloženih vhodnih računov ali vzorčnih izpisov z osebnimi podatki.
-- Compose ohranja način `SHADOW`; ne vklopite zunanjih zapisovalnih operacij, dokler ne razumete posledic.
+   ```sh
+   python /config/custom_components/energy_ledger/migrate_data.py \
+     /path/to/old/backend/data \
+     /config/.storage/energy_ledger/CONFIG_ENTRY_ID
+   ```
 
-## Preverjanje paketa
+   Replace the paths and entry ID. The importer takes a SQLite backup, verifies integrity, checks known schema fingerprints and evidence hashes, and copies the evidence and import files. It refuses to replace an existing destination and leaves the source untouched.
+5. Set your vehicle name, time zone and sensor mappings in the existing entry. If you used Moj Elektro, transfer its settings separately. The data importer does not copy credentials.
+6. Start Home Assistant, verify the old months and reported amounts, then keep the old backend stopped. Retain the old data and backup until you have verified the migration.
 
-Pred uporabo preverite čisti paket in svojo Docker konfiguracijo:
+The legacy Docker source remains available in Git history and tag `v0.3.0` for rollback.
+
+## Development
+
+GitHub is the main source. Work in a branch and submit a pull request. A NAS mirror should pull from GitHub; avoid automatic force-push mirrors in both directions.
 
 ```sh
+python -m venv .venv
+. .venv/bin/activate
+pip install -r requirements-dev.txt
 python -m pytest
-docker compose config
-docker compose build
+node --check custom_components/energy_ledger/www/energy_ledger_panel.js
 ```
+
+Tests use synthetic data and exercise local operation without network sockets, persistence, idempotency, reported snapshots, PDF validation, migration and time-zone isolation. HACS and Hassfest validation run in GitHub Actions.
