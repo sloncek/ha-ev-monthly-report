@@ -1,0 +1,6 @@
+{
+  "name": "energy-ledger-panel-tests",
+  "private": true,
+  "scripts": {"test": "node --test tests/test_panel_i18n.cjs"},
+  "devDependencies": {"linkedom": "0.18.12"}
+}
