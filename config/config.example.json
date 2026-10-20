@@ -1,0 +1,12 @@
+{
+  "vehicle_name": "Audi e-tron",
+  "timezone": "UTC",
+  "odometer_entity": "",
+  "home_energy_statistic": "",
+  "mileage_plan": null,
+  "moj_elektro": {
+    "enabled": false,
+    "usage_point": "",
+    "base_url": "https://api.informatika.si/mojelektro/v1"
+  }
+}

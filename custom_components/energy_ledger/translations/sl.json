@@ -1,0 +1,23 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Energy Ledger – mesečno poročilo",
+        "description": "Povežite ta Home Assistant z lastno storitvijo Energy Ledger.",
+        "data": {
+          "url": "Naslov storitve",
+          "vehicle_name": "Prikazno ime vozila",
+          "timezone": "Časovni pas (IANA)",
+          "odometer_entity": "ID entitete števca kilometrov",
+          "home_energy_statistic": "ID statistike energije za domače polnjenje",
+          "read_token": "Žeton za branje",
+          "write_token": "Žeton za pisanje",
+          "signing_secret": "Skrivnost za podpis"
+        }
+      }
+    },
+    "error": {
+      "invalid_config": "Vnesite veljaven naslov storitve, časovni pas, ime vozila in vse tri skrivnosti."
+    }
+  }
+}

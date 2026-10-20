@@ -1,0 +1,23 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Energy Ledger monthly report",
+        "description": "Connect this Home Assistant instance to its Energy Ledger service.",
+        "data": {
+          "url": "Service URL",
+          "vehicle_name": "Vehicle display name",
+          "timezone": "Time zone (IANA)",
+          "odometer_entity": "Odometer entity ID",
+          "home_energy_statistic": "Home charging energy statistic ID",
+          "read_token": "Read token",
+          "write_token": "Write token",
+          "signing_secret": "Signing secret"
+        }
+      }
+    },
+    "error": {
+      "invalid_config": "Enter a valid service URL, time zone, vehicle name, and all three secrets."
+    }
+  }
+}
