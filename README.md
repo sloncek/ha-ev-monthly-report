@@ -26,7 +26,7 @@ Requires **Home Assistant 2026.9 or newer**, Recorder and HACS.
 5. Open **Settings → Devices & services → Add integration → Energy Ledger**.
 6. Enter a vehicle name, time zone, odometer sensor entity and home charging energy statistic ID. Sensor mappings are optional during setup and can be changed later.
 
-The sidebar report panel is installed with the integration. There is no separate JavaScript resource to copy or configure. The report panel currently uses Slovenian labels; setup is available in English and Slovenian.
+The sidebar report panel is installed with the integration. There is no separate JavaScript resource to copy or configure. The report panel and setup support English and Slovenian. The panel follows each Home Assistant user’s language setting, with English as the fallback for other languages. Numbers and timestamps follow the user’s formatting preferences. Changing the language updates the panel without clearing unfinished inputs.
 
 ## Choose the right sensors
 
@@ -92,6 +92,8 @@ python -m venv .venv
 . .venv/bin/activate
 pip install -r requirements-dev.txt
 python -m pytest
+npm ci --ignore-scripts
+npm test
 node --check custom_components/energy_ledger/www/energy_ledger_panel.js
 ```
 
