@@ -6,7 +6,7 @@ Ta paket pripravi mesečno poročilo o domači porabi za polnjenje, stroških oz
 
 - `energy_ledger/`: API, obdelava računov in izračun mesečnega registra.
 - `custom_components/energy_ledger/`: integracija HA, senzorji in konfiguracijski obrazec.
-- `www/energy_ledger_panel.js`: stranska plošča z mesečnim poročilom.
+- `custom_components/energy_ledger/www/energy_ledger_panel.js`: stranska plošča, ki se namesti skupaj z integracijo.
 - `migrations/`: shema lokalne zbirke podatkov.
 - `compose.yaml`: API in izoliran parser.
 - `config/config.example.json`: očiščen primer konfiguracije brez dejanskih računov, zgodovine ali skrivnosti.
@@ -65,13 +65,29 @@ Ta paket pripravi mesečno poročilo o domači porabi za polnjenje, stroških oz
 
    `data/` vsebuje lokalno zbirko in uvožene podatke. Vključite jo v lastno varnostno kopijo in omejite dostop do nje.
 
-## Namestitev v Home Assistant
+## Namestitev integracije v Home Assistant prek HACS
 
-1. Kopirajte mapo `custom_components/energy_ledger` v `/config/custom_components/energy_ledger`.
-2. Kopirajte `www/energy_ledger_panel.js` v `/config/www/energy_ledger_panel.js`.
-3. Znova zaženite Home Assistant. V **Nastavitve → Naprave in storitve → Dodaj integracijo** poiščite **Energy Ledger**.
-4. Vnesite URL API-ja iz prejšnjega razdelka, ime vozila, časovni pas, ID entitete števca kilometrov, ID statistike energije in tri ustrezne skrivnosti. Časovni pas naj bo veljaven IANA zapis, na primer `Europe/Ljubljana`, in naj se ujema z `timezone` v `config/config.json`.
-5. Po namestitvi se poročilo prikaže v stranski plošči Home Assistanta. Če se panel ali entitete ne pokažejo, preverite dnevnike HA in API ter ali lahko HA razreši `energy-ledger-api`.
+Integracija in JavaScript stranske plošče sta v istem HACS paketu. HACS ju namesti in posodablja skupaj; ročno kopiranje datoteke panela v `/config/www` ni potrebno. HACS namesti samo del Home Assistanta. Backend API, parser in zbirko podatkov je treba namestiti posebej z Docker Compose po zgornjih navodilih.
+
+**Pomembno glede trenutnega gostovanja:** ta projekt je trenutno objavljen na samostojnem Gitea strežniku. HACS sprejema samo javne repozitorije na GitHubu, zato tega Gitea vira ni mogoče dodati v HACS. Paket je pripravljen za prenos na GitHub, vendar so povezave v `manifest.json` namenoma nadomestne. Pred javno objavo zamenjajte `OWNER/REPOSITORY` v poljih `documentation` in `issue_tracker`, dopolnite `codeowners` z GitHub uporabniškim imenom ter določite licenco. Šele nato bo kolega lahko dodal javni GitHub repozitorij v HACS. Neposredni HACS koraki po migraciji so:
+
+1. V HACS odprite meni **⋮ → Custom repositories**.
+2. Vnesite GitHub URL repozitorija in izberite tip **Integration**.
+3. Dodajte repozitorij, odprite **EV Monthly Report** in izberite **Download**.
+4. Znova zaženite Home Assistant.
+5. Odprite **Nastavitve → Naprave in storitve → Dodaj integracijo**, poiščite **Energy Ledger** in vnesite URL API-ja, ime vozila, časovni pas, ID entitete števca kilometrov, ID statistike energije in tri skrivnosti.
+
+Časovni pas naj bo veljaven IANA zapis, na primer `Europe/Ljubljana`, in naj se ujema z `timezone` v `config/config.json`. Po namestitvi se poročilo prikaže v stranski plošči. Ker poročilo prikazuje kilometrino in zneske povračil, sta stranska plošča in njeni API bralni URL-ji omejeni na skrbnike Home Assistanta. Senzorji integracije pa so običajne HA entitete: uporabniki, ki jim je dovoljeno videti stanja teh entitet, lahko vidijo tudi kilometrino in zneske. Če panel ali entitete niso vidni, preverite dnevnike HA in API ter omrežno povezavo med HA in `energy-ledger-api`.
+
+### Priprava prenosa na GitHub
+
+1. Ustvarite javni GitHub repozitorij in vanj prenesite očiščeno vsebino tega projekta; ne prenašajte lokalnih `.env`, `config/config.json`, `data/` ali skrivnosti.
+2. Posodobite povezavi `documentation` in `issue_tracker` v integracijskem `manifest.json`, vnesite GitHub račun v `codeowners` in izberite licenco, ki dovoljuje želeni način deljenja.
+3. V nastavitvah GitHub repozitorija dodajte opis in teme (`home-assistant`, `hacs`, `homeassistant-integration`), omogočite Issues, nato preverite, da workflowa HACS in Hassfest uspešno zaključita.
+4. Objavite semantično različico kot GitHub Release. HACS potrebuje javni GitHub vir; sama oznaka Git ali Gitea objava ne zadostuje.
+5. V HACS dodajte GitHub URL kot *Custom repository* vrste *Integration*.
+
+Dokler je vir samo na Gitea, je alternativa ročna namestitev mape `custom_components/energy_ledger` v `/config/custom_components/energy_ledger`, nato ponovni zagon HA. Panel je v tej mapi, zato tudi pri ročni namestitvi ni več treba posebej kopirati JavaScripta.
 
 ### Ročne nastavitve in povezava Audi e-tron
 

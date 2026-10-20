@@ -13,6 +13,7 @@ from .const import DOMAIN
 class LedgerProxyView(HomeAssistantView):
     url="/api/energy_ledger/{action}"; name="api:energy_ledger"; requires_auth=True
     async def get(self,request,action):
+        if not request[KEY_HASS_USER].is_admin: raise web.HTTPForbidden()
         if re.fullmatch(r"mileage-forecast-\d{4}-(0[1-9]|1[0-2])",action):
             coordinator=next(v for k,v in request.app[KEY_HASS].data[DOMAIN].items() if k!="panel_registered")
             month=action.removeprefix("mileage-forecast-")
@@ -73,4 +74,3 @@ class LedgerProxyView(HomeAssistantView):
             except Exception:
                 body={"error":"energy_ledger_backend_error","status":response.status}
             return web.json_response(body,status=response.status)
-
