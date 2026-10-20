@@ -19,5 +19,5 @@
     "pypdf==6.21.1"
   ],
   "single_config_entry": true,
-  "version": "0.4.1"
+  "version": "0.4.2"
 }
