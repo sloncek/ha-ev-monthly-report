@@ -3,7 +3,16 @@ from datetime import datetime
 from energy_ledger.db import Database
 from energy_ledger.ev_register import get_register
 from energy_ledger.mileage_forecast import get_mileage_forecast
-from custom_components.energy_ledger.monthly_usage import usage_payload
+# Load the pure calculation module without importing the HA runtime package.
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+
+_usage_spec = spec_from_file_location(
+    "monthly_usage", Path(__file__).parents[1] / "custom_components/energy_ledger/monthly_usage.py"
+)
+_usage_module = module_from_spec(_usage_spec)
+_usage_spec.loader.exec_module(_usage_module)
+usage_payload = _usage_module.usage_payload
 
 
 def database(tmp_path):

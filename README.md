@@ -69,25 +69,23 @@ Ta paket pripravi mesečno poročilo o domači porabi za polnjenje, stroških oz
 
 Integracija in JavaScript stranske plošče sta v istem HACS paketu. HACS ju namesti in posodablja skupaj; ročno kopiranje datoteke panela v `/config/www` ni potrebno. HACS namesti samo del Home Assistanta. Backend API, parser in zbirko podatkov je treba namestiti posebej z Docker Compose po zgornjih navodilih.
 
-**Pomembno glede trenutnega gostovanja:** ta projekt je trenutno objavljen na samostojnem Gitea strežniku. HACS sprejema samo javne repozitorije na GitHubu, zato tega Gitea vira ni mogoče dodati v HACS. Paket je pripravljen za prenos na GitHub, vendar so povezave v `manifest.json` namenoma nadomestne. Pred javno objavo zamenjajte `OWNER/REPOSITORY` v poljih `documentation` in `issue_tracker`, dopolnite `codeowners` z GitHub uporabniškim imenom ter določite licenco. Šele nato bo kolega lahko dodal javni GitHub repozitorij v HACS. Neposredni HACS koraki po migraciji so:
+GitHub vir za HACS: **https://github.com/sloncek/ha-ev-monthly-report**. Dodajte ga kot repozitorij po meri:
 
 1. V HACS odprite meni **⋮ → Custom repositories**.
-2. Vnesite GitHub URL repozitorija in izberite tip **Integration**.
+2. Vnesite `https://github.com/sloncek/ha-ev-monthly-report` in izberite tip **Integration**.
 3. Dodajte repozitorij, odprite **EV Monthly Report** in izberite **Download**.
 4. Znova zaženite Home Assistant.
 5. Odprite **Nastavitve → Naprave in storitve → Dodaj integracijo**, poiščite **Energy Ledger** in vnesite URL API-ja, ime vozila, časovni pas, ID entitete števca kilometrov, ID statistike energije in tri skrivnosti.
 
 Časovni pas naj bo veljaven IANA zapis, na primer `Europe/Ljubljana`, in naj se ujema z `timezone` v `config/config.json`. Po namestitvi se poročilo prikaže v stranski plošči. Ker poročilo prikazuje kilometrino in zneske povračil, sta stranska plošča in njeni API bralni URL-ji omejeni na skrbnike Home Assistanta. Senzorji integracije pa so običajne HA entitete: uporabniki, ki jim je dovoljeno videti stanja teh entitet, lahko vidijo tudi kilometrino in zneske. Če panel ali entitete niso vidni, preverite dnevnike HA in API ter omrežno povezavo med HA in `energy-ledger-api`.
 
-### Priprava prenosa na GitHub
+### Razvoj in zasebni podatki
 
-1. Ustvarite javni GitHub repozitorij in vanj prenesite očiščeno vsebino tega projekta; ne prenašajte lokalnih `.env`, `config/config.json`, `data/` ali skrivnosti.
-2. Posodobite povezavi `documentation` in `issue_tracker` v integracijskem `manifest.json`, vnesite GitHub račun v `codeowners` in izberite licenco, ki dovoljuje želeni način deljenja.
-3. V nastavitvah GitHub repozitorija dodajte opis in teme (`home-assistant`, `hacs`, `homeassistant-integration`), omogočite Issues, nato preverite, da workflowa HACS in Hassfest uspešno zaključita.
-4. Objavite semantično različico kot GitHub Release. HACS potrebuje javni GitHub vir; sama oznaka Git ali Gitea objava ne zadostuje.
-5. V HACS dodajte GitHub URL kot *Custom repository* vrste *Integration*.
+GitHub je glavni vir kode. Popravke pripravljajte v ločenih vejah in jih pred združitvijo preglejte prek pull requesta. Kopija na Gitei naj se posodablja v smeri GitHub → Gitea.
 
-Dokler je vir samo na Gitea, je alternativa ročna namestitev mape `custom_components/energy_ledger` v `/config/custom_components/energy_ledger`, nato ponovni zagon HA. Panel je v tej mapi, zato tudi pri ročni namestitvi ni več treba posebej kopirati JavaScripta.
+Repozitorij vsebuje programsko kodo, prazne predloge in sintetične testne podatke. Dejanske nastavitve, žetone, račune, podatkovno zbirko in izvožena poročila hranite samo v svoji namestitvi. Datoteke `.env`, `config/config.json`, `data/` in vsebina `secrets/` so izključene iz Gita; pred vsakim commitom vseeno preverite vsebino sprememb.
+
+Če HACS ni na voljo, lahko mapo `custom_components/energy_ledger` ročno namestite v `/config/custom_components/energy_ledger` in ponovno zaženete HA. Panel je že v tej mapi.
 
 ### Ročne nastavitve in povezava Audi e-tron
 
@@ -132,7 +130,7 @@ Računovodska uvozna pot je neobvezna. Trenutni parser podpira omejen format ra�
 
 ## Preverjanje paketa
 
-Ob pripravi so na voljo preverjanje sintakse JavaScripta z Node.js ter pregled JSON datotek. Python/pytest in Docker v okolju priprave nista bila na voljo, zato Python testov, gradnje slike ali zagona Compose ni mogoče potrditi. Pred uporabo izvedite lokalno gradnjo in teste:
+Pred uporabo preverite čisti paket in svojo Docker konfiguracijo:
 
 ```sh
 python -m pytest

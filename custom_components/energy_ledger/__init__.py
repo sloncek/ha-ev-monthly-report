@@ -26,7 +26,7 @@ async def async_setup_entry(hass, entry):
             hass,
             webcomponent_name="energy-ledger-panel",
             frontend_url_path="energy-ledger",
-            module_url=f"{panel_url}?v=0.3.0",
+            module_url=f"{panel_url}?v=0.3.1",
             sidebar_title=f"{entry.data.get('vehicle_name', 'EV')} · mesečno poročilo",
             sidebar_icon="mdi:car-electric",
             require_admin=True,
