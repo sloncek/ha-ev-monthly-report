@@ -4,6 +4,7 @@ from homeassistant.components import panel_custom
 from homeassistant.components.http import StaticPathConfig
 
 from .const import DOMAIN, PLATFORMS
+from .migration import async_migrate_entry
 from .coordinator import LedgerCoordinator
 from .views import LedgerProxyView
 from .odometer_sync import async_register_odometer

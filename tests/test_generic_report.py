@@ -79,3 +79,30 @@ def test_home_usage_payload_uses_configured_timezone_and_statistic():
     assert result["source"] == "ha-recorder:sensor.ev_home_energy_total"
     assert result["energy_wh"] == 250
     assert result["quality"] == "complete"
+
+
+def test_entry_migration_preserves_credentials_and_user_mappings():
+    import asyncio
+    from types import SimpleNamespace
+    spec = spec_from_file_location(
+        "ledger_migration", Path(__file__).parents[1] / "custom_components/energy_ledger/migration.py"
+    )
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    updates = []
+    hass = SimpleNamespace(
+        config=SimpleNamespace(time_zone="Europe/Ljubljana"),
+        config_entries=SimpleNamespace(async_update_entry=lambda entry, **kwargs: updates.append(kwargs)),
+    )
+    data = {"url": "http://backend:8099", "read_token": "test-read",
+            "write_token": "test-write", "signing_secret": "test-signing",
+            "vehicle_name": "Test EV", "odometer_entity": "sensor.test_odometer",
+            "home_energy_statistic": "sensor.test_energy"}
+    entry = SimpleNamespace(version=2, data=data)
+    assert asyncio.run(module.async_migrate_entry(hass, entry)) is True
+    assert updates == [{"data": {**data, "timezone": "Europe/Ljubljana"}, "version": 3}]
+    assert "timezone" not in data
+    updates.clear()
+    entry.version = 4
+    assert asyncio.run(module.async_migrate_entry(hass, entry)) is False
+    assert updates == []

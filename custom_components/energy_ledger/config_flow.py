@@ -6,7 +6,7 @@ from .coordinator import validate_backend_url
 
 
 class EnergyLedgerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 1
+    VERSION = 3
 
     async def async_step_user(self, user_input=None):
         errors = {}
