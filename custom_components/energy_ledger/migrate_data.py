@@ -26,9 +26,18 @@ def import_data(source_dir, destination):
     destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     stage = Path(tempfile.mkdtemp(prefix='.ledger-import-', dir=destination.parent))
     try:
-        with sqlite3.connect((source_dir/'ledger.sqlite3').as_uri()+'?mode=ro', uri=True) as source:
+        # A read-only WAL-mode source may need a writable SHM file to open.
+        # The documented offline boundary makes this file+WAL copy consistent.
+        snapshot = stage/'source-snapshot.sqlite3'
+        shutil.copyfile(source_dir/'ledger.sqlite3', snapshot)
+        wal = source_dir/'ledger.sqlite3-wal'
+        if wal.exists():
+            shutil.copyfile(wal, Path(str(snapshot)+'-wal'))
+        with sqlite3.connect(snapshot) as source:
             with sqlite3.connect(stage/'ledger.sqlite3') as target:
                 source.backup(target)
+        for file in stage.glob('source-snapshot.sqlite3*'):
+            file.unlink()
         with sqlite3.connect(stage/'ledger.sqlite3') as connection:
             if connection.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
                 raise ValueError('Source database failed integrity verification')

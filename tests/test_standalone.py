@@ -142,3 +142,17 @@ def test_offline_import_accepts_only_known_legacy_schema(tmp_path):
     with pytest.raises(ValueError, match='Unsupported schema checksum'):
         import_data(tmp_path/'source', tmp_path/'rejected')
     assert not (tmp_path/'rejected').exists()
+
+
+def test_offline_import_includes_uncheckpointed_wal(tmp_path):
+    from custom_components.energy_ledger.migrate_data import import_data
+    source = client(tmp_path/'source')
+    # Keep a reader open so the committed record remains in the WAL.
+    hold = sqlite3.connect(source.app.state.ledger_db.path)
+    hold.execute('PRAGMA journal_mode=WAL')
+    hold.execute('SELECT * FROM ev_reimbursement_rate').fetchall()
+    source.request('POST', '/api/v1/months/2026-03/reimbursement-rate', json={'rate_eur_per_kwh': '0.31'})
+    assert Path(str(source.app.state.ledger_db.path)+'-wal').exists()
+    import_data(tmp_path/'source', tmp_path/'imported')
+    assert client(tmp_path/'imported').request('GET', '/api/v1/months/2026-03/register')['reimbursement_rate'] == '0.31'
+    hold.close()
