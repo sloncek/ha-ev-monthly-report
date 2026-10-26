@@ -1,0 +1,119 @@
+{
+  "name": "Home Assistant Energy Ledger to Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "8a1ea274-8077-4a63-99af-1c2cb0c1a001",
+      "name": "Every 30 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://YOUR_HOME_ASSISTANT_HOST/api/energy_ledger/sheet-export",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "8a1ea274-8077-4a63-99af-1c2cb0c1a002",
+      "name": "Read safe monthly export",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const allowed = ['month','status','odometer_km','monthly_distance_km','home_kwh','reimbursement_rate','home_reimbursement_eur','public_gross_eur','other_gross_eur','eligible_expenses_eur','monthly_eligible_eur','opening_balance_eur','requested_eur','reported_eur','closing_balance_eur','pending_home_delta_eur','pending_delta_verified','energy_complete','month_complete','source_quality','ready_to_report','public_energy_complete','current_home_kwh','current_source_quality','reported_at'];\nconst envelope = $input.first()?.json;\nif (!envelope || envelope.schema_version !== 1 || !Array.isArray(envelope.months)) throw new Error('Unsupported Energy Ledger export schema');\nreturn envelope.months.map((month) => {\n  if (typeof month.month !== 'string' || !/^\\d{4}-(0[1-9]|1[0-2])$/.test(month.month)) throw new Error('Invalid month in export');\n  const row = {};\n  for (const key of allowed) row[key] = month[key] ?? '';\n  return { json: row };\n});"
+      },
+      "id": "8a1ea274-8077-4a63-99af-1c2cb0c1a003",
+      "name": "Validate and map monthly fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "SELECT_SPREADSHEET_AFTER_IMPORT",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "HA Sync",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": ["month"],
+          "schema": [
+            {"id":"month","displayName":"month","required":true,"defaultMatch":true,"display":true,"type":"string","canBeUsedToMatch":true},
+            {"id":"status","displayName":"status","required":false,"display":true,"type":"string"},
+            {"id":"odometer_km","displayName":"odometer_km","required":false,"display":true,"type":"number"},
+            {"id":"monthly_distance_km","displayName":"monthly_distance_km","required":false,"display":true,"type":"number"},
+            {"id":"home_kwh","displayName":"home_kwh","required":false,"display":true,"type":"number"},
+            {"id":"reimbursement_rate","displayName":"reimbursement_rate","required":false,"display":true,"type":"number"},
+            {"id":"home_reimbursement_eur","displayName":"home_reimbursement_eur","required":false,"display":true,"type":"number"},
+            {"id":"public_gross_eur","displayName":"public_gross_eur","required":false,"display":true,"type":"number"},
+            {"id":"other_gross_eur","displayName":"other_gross_eur","required":false,"display":true,"type":"number"},
+            {"id":"eligible_expenses_eur","displayName":"eligible_expenses_eur","required":false,"display":true,"type":"number"},
+            {"id":"monthly_eligible_eur","displayName":"monthly_eligible_eur","required":false,"display":true,"type":"number"},
+            {"id":"opening_balance_eur","displayName":"opening_balance_eur","required":false,"display":true,"type":"number"},
+            {"id":"requested_eur","displayName":"requested_eur","required":false,"display":true,"type":"number"},
+            {"id":"reported_eur","displayName":"reported_eur","required":false,"display":true,"type":"number"},
+            {"id":"closing_balance_eur","displayName":"closing_balance_eur","required":false,"display":true,"type":"number"},
+            {"id":"pending_home_delta_eur","displayName":"pending_home_delta_eur","required":false,"display":true,"type":"number"},
+            {"id":"pending_delta_verified","displayName":"pending_delta_verified","required":false,"display":true,"type":"boolean"},
+            {"id":"energy_complete","displayName":"energy_complete","required":false,"display":true,"type":"boolean"},
+            {"id":"month_complete","displayName":"month_complete","required":false,"display":true,"type":"boolean"},
+            {"id":"source_quality","displayName":"source_quality","required":false,"display":true,"type":"string"},
+            {"id":"ready_to_report","displayName":"ready_to_report","required":false,"display":true,"type":"boolean"},
+            {"id":"public_energy_complete","displayName":"public_energy_complete","required":false,"display":true,"type":"boolean"},
+            {"id":"current_home_kwh","displayName":"current_home_kwh","required":false,"display":true,"type":"number"},
+            {"id":"current_source_quality","displayName":"current_source_quality","required":false,"display":true,"type":"string"},
+            {"id":"reported_at","displayName":"reported_at","required":false,"display":true,"type":"string"}
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "8a1ea274-8077-4a63-99af-1c2cb0c1a004",
+      "name": "Upsert HA Sync monthly rows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Every 30 minutes": {"main": [[{"node": "Read safe monthly export", "type": "main", "index": 0}]]},
+    "Read safe monthly export": {"main": [[{"node": "Validate and map monthly fields", "type": "main", "index": 0}]]},
+    "Validate and map monthly fields": {"main": [[{"node": "Upsert HA Sync monthly rows", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "versionId": "8a1ea274-8077-4a63-99af-1c2cb0c1a005",
+  "meta": {"templateCredsSetupCompleted": false},
+  "tags": []
+}

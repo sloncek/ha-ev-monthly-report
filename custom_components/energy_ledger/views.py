@@ -1,6 +1,7 @@
-"""Administrator-only HA views backed by the local reporting engine."""
+"""Home Assistant HTTP views backed by the local reporting engine."""
 import base64
 import binascii
+import hmac
 import re
 import uuid
 
@@ -14,11 +15,29 @@ from .local import LedgerError
 
 _MAX_FILE = 15 * 1024 * 1024
 _MONTH = r"\d{4}-(0[1-9]|1[0-2])"
+_SHEET_EXPORT_FIELDS = (
+    "month", "status", "odometer_km", "monthly_distance_km", "home_kwh",
+    "reimbursement_rate", "home_reimbursement_eur", "public_gross_eur",
+    "other_gross_eur", "eligible_expenses_eur", "monthly_eligible_eur",
+    "opening_balance_eur", "requested_eur", "reported_eur", "closing_balance_eur",
+    "pending_home_delta_eur", "pending_delta_verified", "energy_complete",
+    "month_complete", "source_quality", "ready_to_report", "public_energy_complete",
+    "current_home_kwh", "current_source_quality", "reported_at",
+)
 
 
 def coordinator_for(request):
     if not request[KEY_HASS_USER].is_admin:
         raise web.HTTPForbidden()
+    entries = request.app[KEY_HASS].data.get(DOMAIN, {})
+    for value in entries.values():
+        if hasattr(value, "request"):
+            return value
+    raise web.HTTPServiceUnavailable(text="Energy Ledger is not loaded")
+
+
+def coordinator_for_sheet_export(request):
+    """Find the configured ledger without granting general HA API access."""
     entries = request.app[KEY_HASS].data.get(DOMAIN, {})
     for value in entries.values():
         if hasattr(value, "request"):
@@ -95,3 +114,39 @@ class LedgerProxyView(HomeAssistantView):
             return web.json_response(result, status=201)
         except LedgerError as exc:
             return web.json_response({"detail": exc.detail}, status=exc.status)
+
+
+class LedgerSheetExportView(HomeAssistantView):
+    """Read-only, token-scoped export containing monthly summary fields only."""
+
+    url = "/api/energy_ledger/sheet-export"
+    name = "api:energy_ledger:sheet-export"
+    requires_auth = False
+
+    async def get(self, request):
+        coordinator = coordinator_for_sheet_export(request)
+        expected = coordinator.config.get("sheet_export_token", "")
+        authorization = request.headers.get("Authorization", "")
+        supplied = authorization.removeprefix("Bearer ") if authorization.startswith("Bearer ") else ""
+        if not expected or not supplied or not hmac.compare_digest(
+            supplied.encode("utf-8"), expected.encode("utf-8")
+        ):
+            raise web.HTTPUnauthorized(headers={"Cache-Control": "no-store"})
+
+        try:
+            history = await coordinator.request("GET", "/api/v1/register/history")
+        except LedgerError as exc:
+            return web.json_response(
+                {"detail": exc.detail}, status=exc.status, headers={"Cache-Control": "no-store"}
+            )
+
+        months = history.get("months", []) if isinstance(history, dict) else []
+        projected = [
+            {field: month.get(field) for field in _SHEET_EXPORT_FIELDS}
+            for month in months
+            if isinstance(month, dict) and re.fullmatch(_MONTH, str(month.get("month", "")))
+        ]
+        return web.json_response(
+            {"schema_version": 1, "months": projected},
+            headers={"Cache-Control": "no-store"},
+        )

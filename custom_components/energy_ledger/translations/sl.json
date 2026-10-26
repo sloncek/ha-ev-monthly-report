@@ -14,7 +14,7 @@
       }
     },
     "error": {
-      "invalid_config": "Vnesi ime vozila, veljaven časovni pas in mesec pogodbe. Moj Elektro potrebuje merilno točko in API žeton."
+      "invalid_config": "Preveri ime vozila, časovni pas in mesec pogodbe. Za Moj Elektro sta obvezni obe polji. Izbirni žeton za izvoz v preglednico mora imeti vsaj 32 znakov."
     },
     "abort": {
       "single_instance_allowed": "Energy Ledger je že nastavljen."
@@ -32,12 +32,13 @@
           "allowance_km": "Dovoljena kilometrina (0 izklopi načrt)",
           "contract_end_month": "Konec pogodbe (YYYY-MM, neobvezno)",
           "moj_elektro_usage_point": "Merilna točka Moj Elektro (neobvezno)",
-          "moj_elektro_token": "API žeton Moj Elektro (neobvezno)"
+          "moj_elektro_token": "API žeton Moj Elektro (neobvezno)",
+          "sheet_export_token": "Žeton za izvoz v Google Preglednice (neobvezno; prazno onemogoči izvoz)"
         }
       }
     },
     "error": {
-      "invalid_config": "Vnesi ime vozila, veljaven časovni pas in mesec pogodbe. Moj Elektro potrebuje merilno točko in API žeton."
+      "invalid_config": "Preveri ime vozila, časovni pas in mesec pogodbe. Za Moj Elektro sta obvezni obe polji. Izbirni žeton za izvoz v preglednico mora imeti vsaj 32 znakov."
     }
   }
 }
