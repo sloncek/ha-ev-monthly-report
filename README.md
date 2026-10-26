@@ -50,6 +50,12 @@ PDF parsing runs locally inside Home Assistant's executor. The parser currently 
 
 Moj Elektro is optional. In **Configure**, enter both your usage point and your own Moj Elektro API token to enable reconciliation. Leave both fields empty to keep it disabled. Only this optional feature contacts the Moj Elektro API; ordinary reports and forecasts are local.
 
+## Optional n8n and Google Sheets sync
+
+Version 0.4.3 adds a read-only, token-protected monthly export and a generic n8n workflow for syncing it to a dedicated `HA Sync` tab. The export includes summary values only; it excludes expense details, notes, legacy imports, source hashes, invoice evidence and entity identifiers. It does not expose general Home Assistant API access. The workflow template contains no spreadsheet ID or credentials and is inactive until configured.
+
+See [the n8n and Google Sheets setup guide](docs/n8n-google-sheets.md). Do not commit your export token, Google OAuth credentials, spreadsheet ID or personal ledger data to this public repository.
+
 ## Storage, access and backups
 
 Data is stored under:

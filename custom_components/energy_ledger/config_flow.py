@@ -19,6 +19,9 @@ def valid_input(data):
         raise ValueError("invalid contract end month")
     if bool(data.get("moj_elektro_token")) != bool(data.get("moj_elektro_usage_point")):
         raise ValueError("both Moj Elektro fields are required")
+    sheet_token = data.get("sheet_export_token", "")
+    if sheet_token and (len(sheet_token) < 32 or sheet_token != sheet_token.strip()):
+        raise ValueError("sheet export token must be at least 32 characters with no surrounding whitespace")
     return data
 
 
@@ -35,6 +38,8 @@ def schema(defaults, advanced=False):
             vol.Optional("contract_end_month", default=defaults.get("contract_end_month", "")): str,
             vol.Optional("moj_elektro_usage_point", default=defaults.get("moj_elektro_usage_point", "")): str,
             vol.Optional("moj_elektro_token", default=defaults.get("moj_elektro_token", "")): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)),
+            vol.Optional("sheet_export_token", default=defaults.get("sheet_export_token", "")): selector.TextSelector(
                 selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)),
         })
     return vol.Schema(fields)
