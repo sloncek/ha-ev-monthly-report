@@ -438,11 +438,12 @@ class EnergyLedgerPanel extends HTMLElement {
     this.querySelector('#odometer-month').textContent=this.t("Recorded odometer: {0} km; monthly distance: {1} km.", value(data.odometer_km), value(data.monthly_distance_km));
     const list=this.querySelector('#expense-list');list.replaceChildren();for(const expense of data.expenses||[]){
       const li=document.createElement('li');li.append(document.createTextNode(`${expense.occurred_date||expense.date}: ${expense.provider||expense.kind} · ${this.formatNumber(expense.gross_eur,{minimumFractionDigits:2})} € · ${expense.eligible?this.t("included in claim"):this.t("excluded from claim")}${expense.energy_kwh===null?this.t(" · kWh unknown"):''}${expense.notes?' · '+expense.notes:''}`));
-      if(expense.kind==='PUBLIC'&&Number.isInteger(expense.id)){
+      const expenseId=Number(expense.id);
+      if(expense.kind==='PUBLIC'&&Number.isSafeInteger(expenseId)&&expenseId>0){
         const label=document.createElement('label');label.style.marginLeft='0.5em';
         const input=document.createElement('input');input.type='checkbox';input.checked=Boolean(expense.eligible);input.disabled=data.status==='REPORTED'||!this.registerReady();input.style.width='auto';
         input.setAttribute('aria-label',`${expense.provider||this.t("Public charging")}: ${this.t("Include in employer claim")}`);
-        input.addEventListener('change',()=>this.updateExpenseEligibility(expense.id,input.checked,input));
+        input.addEventListener('change',()=>this.updateExpenseEligibility(expenseId,input.checked,input));
         label.append(input,document.createTextNode(' '+this.t("Include in employer claim")));li.append(label);
       }
       list.append(li);
