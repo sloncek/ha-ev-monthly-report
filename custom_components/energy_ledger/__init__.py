@@ -36,7 +36,7 @@ async def async_setup_entry(hass, entry):
             hass,
             webcomponent_name="energy-ledger-native-panel",
             frontend_url_path="energy-ledger",
-            module_url=f"{panel_url}?v=0.4.3",
+            module_url=f"{panel_url}?v=0.4.4",
             sidebar_title=f"{coordinator.vehicle_name} · Energy Ledger",
             sidebar_icon="mdi:car-electric",
             require_admin=True,
