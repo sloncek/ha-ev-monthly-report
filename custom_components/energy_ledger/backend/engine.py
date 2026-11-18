@@ -309,6 +309,9 @@ def create_app(data_dir: Path, config: dict):
         amount_eur: str
         idempotency_key: str
 
+    class RegisterExpenseEligibilityInput(BaseModel):
+        eligible: bool
+
     class RegisterRateInput(BaseModel):
         rate_eur_per_kwh: str
 
@@ -341,6 +344,10 @@ def create_app(data_dir: Path, config: dict):
     @app.post("/api/v1/register/expense",status_code=201)
     def register_expense(data:RegisterExpenseInput,actor:str=Depends(auth_write)):
         return _register_call(ev_register.add_expense,data.model_dump(),actor)
+
+    @app.post("/api/v1/months/{month}/expenses/{expense_id}/eligibility")
+    def register_expense_eligibility(month:str,expense_id:int,data:RegisterExpenseEligibilityInput,actor:str=Depends(auth_write)):
+        return _register_call(ev_register.update_expense_eligibility,month,expense_id,data.eligible,actor)
 
     @app.post("/api/v1/months/{month}/reported")
     def register_reported(month:str,data:RegisterReportedInput,actor:str=Depends(auth_write)):

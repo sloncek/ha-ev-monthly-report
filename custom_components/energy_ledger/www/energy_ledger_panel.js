@@ -387,6 +387,7 @@ class EnergyLedgerPanel extends HTMLElement {
   applyEditingRules(){
     const data=this._registerData,locked=data?.status==='REPORTED',ready=this.registerReady();
     for(const id of ['#save-expense','#save-odometer','#save-rate'])this.querySelector(id).disabled=!ready||locked;
+    for(const input of this.querySelectorAll('#expense-list input[type="checkbox"]'))input.disabled=!ready||locked;
     this.querySelector('#copy-email').disabled=!ready;
     this.querySelector('#save-reported').disabled=!ready||locked||data?.requested_eur===null||data?.ready_to_report===false;
     for(const id of ['#reported-amount','#claim-rate','#expense-kind','#expense-date','#expense-provider','#expense-gross','#expense-kwh','#expense-eligible','#expense-notes','#odometer-value','#odometer-date'])this.querySelector(id).disabled=!ready||locked||(id==='#expense-kwh'&&this.querySelector('#expense-kind').value==='OTHER');
@@ -395,7 +396,8 @@ class EnergyLedgerPanel extends HTMLElement {
     const month=this.selectedMonth(); if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month||'')) return;
     const state=this._hass.states?.['sensor.energy_ledger_report_claim_status'];
     const version=month+'|'+(state?.last_updated||'');
-    if(this._registerLoading||(!force&&version===this._registerVersion)) return;
+    if(this._registerLoading){if(force)this._pendingRegisterRefresh=true;return;}
+    if(!force&&version===this._registerVersion) return;
     this._registerLoading=true;
     this._mileageData=null;this.querySelector('#mileage-table tbody').replaceChildren();this.querySelector('#mileage-summary').textContent=this.t("Loading forecast for {0} …", month);this.querySelector('#mileage-basis').textContent='';this.querySelector('#mileage-scenarios').textContent='';
     this.querySelector('#comparison-table tbody').replaceChildren();this.querySelector('#comparison-summary').textContent=this.t("Loading deviations for {0} …", month);
@@ -418,7 +420,7 @@ class EnergyLedgerPanel extends HTMLElement {
         }catch(e){if(month===this.selectedMonth()){this.querySelector('#mileage-summary').textContent=this.t("The forecast is currently unavailable. ")+this.errorText(e);this.querySelector('#comparison-summary').textContent=this.t("The comparison is currently unavailable. ")+this.errorText(e);}}
       }
     }catch(e){this.querySelector('#register-summary').textContent=this.t("The ledger could not be refreshed. ")+this.errorText(e);}
-    finally{this._registerLoading=false;if(month!==this.selectedMonth()&&this.isConnected)this.syncRegister();else {this.applyEditingRules();if(this.registerReady())this.openPendingEditor();}}
+    finally{this._registerLoading=false;if(this._pendingRegisterRefresh){this._pendingRegisterRefresh=false;this.syncRegister(true);}else if(month!==this.selectedMonth()&&this.isConnected)this.syncRegister();else {this.applyEditingRules();if(this.registerReady())this.openPendingEditor();}}
   }
   showRegister(data){
     this.querySelector('#month-heading').textContent=`${data.month} · ${data.status==='REPORTED'?this.t("already reported, read only"):this.t("enter missing data")}`;
@@ -434,7 +436,17 @@ class EnergyLedgerPanel extends HTMLElement {
     const odometer=odometerEntity && this._hass.states?.[odometerEntity];
     this.querySelector('#odometer-current').textContent=odometer&&!['unknown','unavailable'].includes(odometer.state)?this.t("Current odometer ({0}): {1} km. HA update: {2}; this is not an automatic month-end reading for the selected month.", odometerEntity, this.formatNumber(odometer.state), this.formatDateTime(odometer.last_updated)):this.t("The mapped odometer is currently unavailable; a manual monthly reading can be entered.");
     this.querySelector('#odometer-month').textContent=this.t("Recorded odometer: {0} km; monthly distance: {1} km.", value(data.odometer_km), value(data.monthly_distance_km));
-    const list=this.querySelector('#expense-list');list.replaceChildren();for(const expense of data.expenses||[]){const li=document.createElement('li');li.textContent=`${expense.occurred_date||expense.date}: ${expense.provider||expense.kind} · ${this.formatNumber(expense.gross_eur,{minimumFractionDigits:2})} € · ${expense.eligible?this.t("included in claim"):this.t("excluded from claim")}${expense.energy_kwh===null?this.t(" · kWh unknown"):''}${expense.notes?' · '+expense.notes:''}`;list.append(li);}
+    const list=this.querySelector('#expense-list');list.replaceChildren();for(const expense of data.expenses||[]){
+      const li=document.createElement('li');li.append(document.createTextNode(`${expense.occurred_date||expense.date}: ${expense.provider||expense.kind} · ${this.formatNumber(expense.gross_eur,{minimumFractionDigits:2})} € · ${expense.eligible?this.t("included in claim"):this.t("excluded from claim")}${expense.energy_kwh===null?this.t(" · kWh unknown"):''}${expense.notes?' · '+expense.notes:''}`));
+      if(expense.kind==='PUBLIC'&&Number.isInteger(expense.id)){
+        const label=document.createElement('label');label.style.marginLeft='0.5em';
+        const input=document.createElement('input');input.type='checkbox';input.checked=Boolean(expense.eligible);input.disabled=data.status==='REPORTED'||!this.registerReady();input.style.width='auto';
+        input.setAttribute('aria-label',`${expense.provider||this.t("Public charging")}: ${this.t("Include in employer claim")}`);
+        input.addEventListener('change',()=>this.updateExpenseEligibility(expense.id,input.checked,input));
+        label.append(input,document.createTextNode(' '+this.t("Include in employer claim")));li.append(label);
+      }
+      list.append(li);
+    }
   }
   showHistory(months){
     this._historyMonths=months;
@@ -494,6 +506,14 @@ class EnergyLedgerPanel extends HTMLElement {
     const body={date,kind,provider,gross_eur:gross,energy_kwh:kind==='PUBLIC'&&kwh?kwh:null,eligible:this.querySelector('#expense-eligible').checked,notes:this.querySelector('#expense-notes').value};
     const signature=JSON.stringify({...body,month:this.selectedMonth()});if(this._expenseSignature!==signature){this._expenseSignature=signature;this._expenseKey=crypto.randomUUID();}
     if(await this.saveRegister('register-expense',{...body,idempotency_key:this._expenseKey},'#save-expense')){for(const id of ['#expense-gross','#expense-kwh','#expense-notes'])this.querySelector(id).value='';this._expenseKey=null;this._expenseSignature=null;}
+  }
+  async updateExpenseEligibility(expenseId,eligible,input){
+    if(!this.registerReady()||this._registerData?.status==='REPORTED'){input.checked=!eligible;return;}
+    input.disabled=true;
+    const month=this.selectedMonth();
+    try{await this._hass.callApi('post','energy_ledger/register-expense-eligibility',{month,expense_id:expenseId,eligible});this.msg(this.t("Saved for {0}.",month));await this.syncRegister(true);}
+    catch(e){input.checked=!eligible;this.msg(this.errorText(e),true);}
+    finally{this.applyEditingRules();}
   }
   async saveReported(){
     if(!this.registerReady()){this.msg(this.t("Wait for the selected month's data."),true);return;}

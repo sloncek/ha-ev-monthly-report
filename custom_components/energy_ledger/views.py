@@ -55,6 +55,7 @@ class LedgerProxyView(HomeAssistantView):
             raise web.HTTPBadRequest(text="JSON object required")
         actor = str(request[KEY_HASS_USER].id)
         register_actions = {"register-expense": "/api/v1/register/expense",
+                            "register-expense-eligibility": "expense-eligibility",
                             "register-reported": "reported", "register-rate": "reimbursement-rate",
                             "register-odometer": "odometer"}
         try:
@@ -62,7 +63,15 @@ class LedgerProxyView(HomeAssistantView):
                 month = payload.get("month", "")
                 if not isinstance(month, str) or not re.fullmatch(_MONTH, month):
                     raise web.HTTPBadRequest(text="invalid month")
-                path = register_actions[action] if action == "register-expense" else f"/api/v1/months/{month}/{register_actions[action]}"
+                if action == "register-expense":
+                    path = register_actions[action]
+                elif action == "register-expense-eligibility":
+                    expense_id = payload.pop("expense_id", None)
+                    if not isinstance(expense_id, int) or isinstance(expense_id, bool) or expense_id < 1:
+                        raise web.HTTPBadRequest(text="invalid charging entry")
+                    path = f"/api/v1/months/{month}/expenses/{expense_id}/eligibility"
+                else:
+                    path = f"/api/v1/months/{month}/{register_actions[action]}"
                 if action != "register-expense":
                     payload.pop("month")
                 result = await coordinator.request("POST", path, actor=actor, json=payload)
