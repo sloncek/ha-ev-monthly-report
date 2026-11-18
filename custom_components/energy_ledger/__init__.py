@@ -8,7 +8,7 @@ from homeassistant.components.http import StaticPathConfig
 from .const import DOMAIN, PLATFORMS
 from .migration import async_migrate_entry
 from .coordinator import LedgerCoordinator
-from .views import LedgerProxyView
+from .views import LedgerProxyView, LedgerSheetExportView
 from .odometer_sync import async_register_odometer
 
 
@@ -32,6 +32,7 @@ async def async_setup_entry(hass, entry):
             [StaticPathConfig(panel_url, str(panel_dir / "energy_ledger_panel.js"), False)]
         )
         hass.http.register_view(LedgerProxyView)
+        hass.http.register_view(LedgerSheetExportView)
         await panel_custom.async_register_panel(
             hass,
             webcomponent_name="energy-ledger-native-panel",
@@ -66,6 +67,7 @@ async def _async_options_updated(hass, entry):
     if coordinator and any(
         coordinator.config.get(key) != {**entry.data, **entry.options}.get(key)
         for key in ("vehicle_name", "timezone", "odometer_entity", "home_energy_statistic",
-                    "allowance_km", "contract_end_month", "moj_elektro_usage_point", "moj_elektro_token")
+                    "allowance_km", "contract_end_month", "moj_elektro_usage_point", "moj_elektro_token",
+                    "sheet_export_token")
     ):
         await hass.config_entries.async_reload(entry.entry_id)
