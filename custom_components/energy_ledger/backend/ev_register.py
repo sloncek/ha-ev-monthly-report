@@ -191,6 +191,40 @@ def add_expense(db, payload, actor):
         return result
 
 
+def update_expense_eligibility(db, month, expense_id, eligible, actor):
+    """Change only whether an existing public charging entry is claimable."""
+    month_valid(month)
+    if not isinstance(expense_id, int) or isinstance(expense_id, bool) or expense_id < 1:
+        raise RegisterError("invalid expense id")
+    if not isinstance(eligible, bool):
+        raise RegisterError("eligible must be boolean")
+    with db.transaction() as conn:
+        month_row = conn.execute(
+            "SELECT snapshot_json FROM ev_register_month WHERE year_month=?", (month,)
+        ).fetchone()
+        if month_row and month_row["snapshot_json"]:
+            raise RegisterError("reported month is immutable; add correction to a draft month", 409)
+        expense = conn.execute(
+            "SELECT kind,eligible FROM ev_register_expense WHERE id=? AND year_month=?",
+            (expense_id, month),
+        ).fetchone()
+        if expense is None:
+            raise RegisterError("charging entry not found", 404)
+        if expense["kind"] != "PUBLIC":
+            raise RegisterError("only public charging eligibility can be changed", 422)
+        previous = bool(expense["eligible"])
+        if previous != eligible:
+            conn.execute(
+                "UPDATE ev_register_expense SET eligible=? WHERE id=? AND year_month=?",
+                (int(eligible), expense_id, month),
+            )
+            db.audit(
+                conn, actor, "REGISTER_EXPENSE_ELIGIBILITY", "expense",
+                f"{month}:{expense_id}", {"eligible_before": previous, "eligible_after": eligible},
+            )
+        return get_register(db, month, conn)
+
+
 def report_month(db, month, payload, actor):
     month_valid(month)
     amount = cents(payload["amount_eur"])
